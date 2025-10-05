@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ゲーム時間 管理モック</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="color-scheme" content="light dark">
+    <style>
+      :root { color-scheme: light dark; }
+      .time-shadow { text-shadow: 0 1px 0 rgba(0,0,0,.08); }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
+    <div class="max-w-3xl mx-auto px-6 py-6">
+      <!-- Header -->
+      <header class="flex items-center justify-between">
+        <h1 class="text-xl font-semibold tracking-tight">ゲーム時間</h1>
+        <div class="flex items-center gap-3">
+          <button id="openParentBtn" class="relative inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M5.25 9A3.75 3.75 0 0 1 9 5.25h6A3.75 3.75 0 0 1 18.75 9v2.25h.75A2.25 2.25 0 0 1 21.75 13.5v6A2.25 2.25 0 0 1 19.5 21.75h-15A2.25 2.25 0 0 1 2.25 19.5v-6A2.25 2.25 0 0 1 4.5 11.25h.75V9ZM9 6.75A2.25 2.25 0 0 0 6.75 9v2.25h10.5V9A2.25 2.25 0 0 0 15 6.75H9Z" clip-rule="evenodd"/></svg>
+            親モード
+            <span id="badgePending" class="hidden absolute -top-2 -right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Child Screen -->
+      <main class="mt-10">
+        <section class="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 backdrop-blur p-8">
+          <div class="text-center">
+            <p class="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400">残り時間</p>
+            <div class="mt-2 text-6xl sm:text-7xl font-black tabular-nums time-shadow">
+              <span id="hours">1</span>
+              <span class="text-3xl align-top ml-1">時間</span>
+              <span class="ml-4" id="minutes">30</span>
+              <span class="text-3xl align-top ml-1">分</span>
+            </div>
+
+            <p id="statusText" class="mt-4 text-slate-600 dark:text-slate-300">状態: 待機中</p>
+
+            <div class="mt-10">
+              <button id="toggleBtn" class="w-full sm:w-2/3 mx-auto block rounded-2xl px-8 py-6 text-xl font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">ゲームをはじめる</button>
+            </div>
+
+            <div id="elapsedWrap" class="mt-6 hidden">
+              <p class="text-sm text-slate-500 dark:text-slate-400">経過: <span id="elapsed">00:00:00</span></p>
+            </div>
+          </div>
+          <!-- Child: request extra time -->
+          <div class="mt-10 border-t border-slate-200 dark:border-slate-800 pt-8">
+            <h3 class="text-left text-sm font-semibold text-slate-700 dark:text-slate-300">追加時間の申請</h3>
+            <div class="mt-3 flex flex-wrap gap-3">
+              <button data-req="5" class="reqBtn rounded-xl px-4 py-2 bg-amber-600 text-white hover:bg-amber-500">+5分 申請</button>
+              <button data-req="10" class="reqBtn rounded-xl px-4 py-2 bg-amber-600 text-white hover:bg-amber-500">+10分 申請</button>
+              <button data-req="15" class="reqBtn rounded-xl px-4 py-2 bg-amber-600 text-white hover:bg-amber-500">+15分 申請</button>
+              <button data-req="30" class="reqBtn rounded-xl px-4 py-2 bg-amber-600 text-white hover:bg-amber-500">+30分 申請</button>
+              <button data-req="60" class="reqBtn rounded-xl px-4 py-2 bg-amber-600 text-white hover:bg-amber-500">+60分 申請</button>
+              <div class="flex items-center gap-2">
+                <input id="reqCustom" type="number" min="1" inputmode="numeric" class="w-24 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2" placeholder="分" />
+                <button id="reqCustomBtn" class="rounded-xl px-4 py-2 bg-amber-600 text-white hover:bg-amber-500">申請</button>
+              </div>
+            </div>
+            <p id="reqHint" class="mt-2 text-xs text-slate-500">申請は親モードで承認/却下されます（自動承認の設定も可能）。</p>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">MVP モック（データ永続なし）</footer>
+    </div>
+
+    <!-- Parent Modal -->
+    <div id="parentModal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-slate-900/60"></div>
+      <div class="relative mx-auto mt-16 w-full max-w-xl">
+        <div class="mx-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl">
+          <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+            <h2 class="text-lg font-semibold">親モード</h2>
+            <button id="closeParentBtn" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div id="pinView" class="p-6">
+            <p class="text-sm text-slate-600 dark:text-slate-300">PIN を入力してください</p>
+            <div class="mt-4 flex items-center gap-3">
+              <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-4 py-3 text-lg" placeholder="1234" />
+              <button id="unlockBtn" class="rounded-xl px-5 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium">開く</button>
+            </div>
+            <p id="pinError" class="mt-3 text-sm text-rose-600 hidden">PIN が違います</p>
+          </div>
+
+          <div id="panelView" class="p-6 hidden">
+            <div class="grid gap-6">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">残り時間</p>
+                <div class="mt-1 text-3xl font-bold tabular-nums"><span id="remainText">1時間 30分</span></div>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-slate-600 dark:text-slate-300">追加申請の自動承認</p>
+                  <label class="inline-flex items-center gap-2 mt-2 select-none cursor-pointer">
+                    <input id="autoApproveChk" type="checkbox" class="peer sr-only" />
+                    <span class="w-11 h-6 rounded-full bg-slate-300 peer-checked:bg-emerald-600 relative transition-colors">
+                      <span class="absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                    </span>
+                    <span class="text-sm text-slate-600 dark:text-slate-300">ONで即時反映</span>
+                  </label>
+                </div>
+                <span id="pendingCount" class="text-sm text-slate-500">未承認: 0 件</span>
+              </div>
+
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">付与（プリセット）</p>
+                <div class="mt-2 flex flex-wrap gap-3">
+                  <button data-grant="5" class="grantBtn rounded-xl px-4 py-3 bg-emerald-600 text-white hover:bg-emerald-500">+5分</button>
+                  <button data-grant="10" class="grantBtn rounded-xl px-4 py-3 bg-emerald-600 text-white hover:bg-emerald-500">+10分</button>
+                  <button data-grant="15" class="grantBtn rounded-xl px-4 py-3 bg-emerald-600 text-white hover:bg-emerald-500">+15分</button>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">消費（プリセット・任意）</p>
+                <div class="mt-2 flex flex-wrap gap-3">
+                  <button data-consume="5" class="consumeBtn rounded-xl px-4 py-3 bg-sky-600 text-white hover:bg-sky-500">-5分</button>
+                  <button data-consume="10" class="consumeBtn rounded-xl px-4 py-3 bg-sky-600 text-white hover:bg-sky-500">-10分</button>
+                  <button data-consume="15" class="consumeBtn rounded-xl px-4 py-3 bg-sky-600 text-white hover:bg-sky-500">-15分</button>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">申請一覧（未承認）</p>
+                <div id="requestsList" class="mt-2 grid gap-3"></div>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <button id="resetBtn" class="rounded-xl px-4 py-3 bg-rose-600 text-white hover:bg-rose-500">0分にリセット</button>
+                <div class="flex items-center gap-3">
+                  <button id="exportBtn" class="rounded-xl px-4 py-3 bg-slate-200 dark:bg-slate-800">エクスポート</button>
+                  <label class="rounded-xl px-4 py-3 bg-slate-200 dark:bg-slate-800 cursor-pointer">
+                    インポート<input id="importInput" type="file" accept="application/json" class="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              <p class="text-xs text-slate-500">注: これはUIモックです（iPadブラウザ向け）。本番ではIndexedDB/PWA等を利用予定。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Mock state (not persisted)
+      let remaining = 90; // minutes
+      let running = false;
+      let startTs = 0; // ms
+      let elapsedTimer = null;
+      let autoApprove = false;
+      /** @type {{id:string, minutes:number, createdAt:number, status:'pending'|'approved'|'rejected'}[]} */
+      let requests = [];
+
+      const hoursEl = document.getElementById('hours');
+      const minutesEl = document.getElementById('minutes');
+      const statusText = document.getElementById('statusText');
+      const toggleBtn = document.getElementById('toggleBtn');
+      const elapsedWrap = document.getElementById('elapsedWrap');
+      const elapsedEl = document.getElementById('elapsed');
+      const remainText = document.getElementById('remainText');
+      const pendingCountEl = document.getElementById('pendingCount');
+      const badgePending = document.getElementById('badgePending');
+
+      function renderRemain() {
+        const h = Math.floor(remaining / 60);
+        const m = Math.max(0, remaining % 60);
+        hoursEl.textContent = h;
+        minutesEl.textContent = String(m).padStart(2, '0');
+        remainText.textContent = `${h}時間 ${String(m).padStart(2, '0')}分`;
+        toggleBtn.disabled = !running && remaining <= 0;
+      }
+
+      function renderPending() {
+        const pending = requests.filter(r => r.status === 'pending');
+        const n = pending.length;
+        pendingCountEl.textContent = `未承認: ${n} 件`;
+        if (n > 0) {
+          badgePending.textContent = String(n);
+          badgePending.classList.remove('hidden');
+        } else {
+          badgePending.classList.add('hidden');
+        }
+        const list = document.getElementById('requestsList');
+        list.innerHTML = '';
+        pending.forEach((r) => {
+          const d = new Date(r.createdAt);
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-3 bg-white/60 dark:bg-slate-900/60';
+          item.innerHTML = `
+            <div>
+              <div class="font-medium">+${r.minutes} 分</div>
+              <div class="text-xs text-slate-500">${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')} 申請</div>
+            </div>
+            <div class="flex gap-2">
+              <button data-act="approve" data-id="${r.id}" class="rounded-lg px-3 py-2 bg-emerald-600 text-white hover:bg-emerald-500 text-sm">承認</button>
+              <button data-act="reject" data-id="${r.id}" class="rounded-lg px-3 py-2 bg-slate-200 dark:bg-slate-800 text-sm">却下</button>
+            </div>`;
+          list.appendChild(item);
+        });
+        // Attach handlers
+        list.querySelectorAll('button[data-act]')
+          .forEach(btn => btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const act = btn.getAttribute('data-act');
+            if (act === 'approve') approveRequest(id);
+            if (act === 'reject') rejectRequest(id);
+          }));
+      }
+
+      function fmtDur(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+        const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        return `${hh}:${mm}:${ss}`;
+      }
+
+      function start() {
+        if (running || remaining <= 0) return;
+        running = true;
+        startTs = Date.now();
+        statusText.textContent = '状態: 実行中';
+        toggleBtn.textContent = '長押しで終了する';
+        toggleBtn.classList.remove('bg-emerald-600','hover:bg-emerald-500');
+        toggleBtn.classList.add('bg-rose-600','hover:bg-rose-500');
+        elapsedWrap.classList.remove('hidden');
+        let pressTimer = null;
+        const commitEnd = () => end();
+        const onDown = () => { pressTimer = setTimeout(commitEnd, 550); };
+        const onUp = () => { clearTimeout(pressTimer); };
+        toggleBtn.onmousedown = onDown; toggleBtn.onmouseup = onUp; toggleBtn.onmouseleave = onUp;
+        toggleBtn.ontouchstart = onDown; toggleBtn.ontouchend = onUp; toggleBtn.ontouchcancel = onUp;
+        elapsedTimer = setInterval(() => {
+          elapsedEl.textContent = fmtDur(Date.now() - startTs);
+        }, 250);
+      }
+
+      function end() {
+        if (!running) return;
+        running = false;
+        const deltaMin = Math.max(0, Math.round((Date.now() - startTs) / 60000));
+        remaining = Math.max(0, remaining - deltaMin);
+        startTs = 0;
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+        elapsedEl.textContent = '00:00:00';
+        elapsedWrap.classList.add('hidden');
+        statusText.textContent = '状態: 待機中';
+        toggleBtn.textContent = 'ゲームをはじめる';
+        toggleBtn.classList.add('bg-emerald-600','hover:bg-emerald-500');
+        toggleBtn.classList.remove('bg-rose-600','hover:bg-rose-500');
+        toggleBtn.onmousedown = toggleBtn.onmouseup = toggleBtn.onmouseleave = null;
+        toggleBtn.ontouchstart = toggleBtn.ontouchend = toggleBtn.ontouchcancel = null;
+        renderRemain();
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        if (!running) {
+          start();
+        }
+      });
+
+      // Parent modal and PIN
+      const parentModal = document.getElementById('parentModal');
+      const openParentBtn = document.getElementById('openParentBtn');
+      const closeParentBtn = document.getElementById('closeParentBtn');
+      const pinView = document.getElementById('pinView');
+      const panelView = document.getElementById('panelView');
+      const pinInput = document.getElementById('pinInput');
+      const unlockBtn = document.getElementById('unlockBtn');
+      const pinError = document.getElementById('pinError');
+
+      function openModal() {
+        parentModal.classList.remove('hidden');
+        pinView.classList.remove('hidden');
+        panelView.classList.add('hidden');
+        pinError.classList.add('hidden');
+        pinInput.value = '';
+        pinInput.focus();
+      }
+      function closeModal() { parentModal.classList.add('hidden'); }
+
+      openParentBtn.addEventListener('click', openModal);
+      closeParentBtn.addEventListener('click', closeModal);
+      parentModal.addEventListener('click', (e) => { if (e.target === parentModal) closeModal(); });
+
+      function unlock() {
+        if (pinInput.value === '1234') {
+          pinView.classList.add('hidden');
+          panelView.classList.remove('hidden');
+          pinError.classList.add('hidden');
+          updatePanel();
+        } else {
+          pinError.classList.remove('hidden');
+        }
+      }
+      unlockBtn.addEventListener('click', unlock);
+      pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
+
+      function updatePanel() { remainText.textContent = `${Math.floor(remaining/60)}時間 ${String(remaining%60).padStart(2,'0')}分`; renderRemain(); }
+      function updateAll() { updatePanel(); renderPending(); }
+
+      // Grant / Consume
+      document.querySelectorAll('.grantBtn').forEach(btn => btn.addEventListener('click', () => {
+        const m = Number(btn.dataset.grant || 0);
+        remaining = Math.max(0, remaining + m);
+        updateAll();
+      }));
+      document.querySelectorAll('.consumeBtn').forEach(btn => btn.addEventListener('click', () => {
+        const m = Number(btn.dataset.consume || 0);
+        remaining = Math.max(0, remaining - m);
+        updateAll();
+      }));
+
+      // Reset
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        if (confirm('残り時間を 0 分にリセットします。よろしいですか？')) {
+          remaining = 0; if (running) end(); updateAll();
+        }
+      });
+
+      // Export / Import (mock file-based)
+      document.getElementById('exportBtn').addEventListener('click', () => {
+        const data = { remaining, running, startTs, autoApprove, requests };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const d = new Date();
+        const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        a.download = `game-time-backup_${ds}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      document.getElementById('importInput').addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          if (typeof data.remaining === 'number') remaining = Math.max(0, Math.floor(data.remaining));
+          if (running) end();
+          autoApprove = !!data.autoApprove;
+          requests = Array.isArray(data.requests) ? data.requests : [];
+          document.getElementById('autoApproveChk').checked = autoApprove;
+          updateAll();
+          alert('読み込みました');
+        } catch (err) {
+          alert('JSON が不正です');
+        } finally {
+          e.target.value = '';
+        }
+      });
+
+      // Auto approve toggle
+      document.getElementById('autoApproveChk').addEventListener('change', (e) => {
+        autoApprove = e.target.checked;
+      });
+
+      // Child: request handlers
+      function createRequest(minutes) {
+        const m = Math.max(1, Math.floor(minutes));
+        const req = { id: 'g' + Date.now() + Math.floor(Math.random()*1000), minutes: m, createdAt: Date.now(), status: 'pending' };
+        if (autoApprove) {
+          req.status = 'approved';
+          requests.push(req);
+          remaining = Math.max(0, remaining + m);
+          renderRemain();
+        } else {
+          requests.push(req);
+          renderPending();
+        }
+        updateBadgeOnly();
+      }
+
+      function approveRequest(id) {
+        const r = requests.find(x => x.id === id && x.status === 'pending');
+        if (!r) return;
+        r.status = 'approved';
+        remaining = Math.max(0, remaining + r.minutes);
+        updateAll();
+      }
+
+      function rejectRequest(id) {
+        const r = requests.find(x => x.id === id && x.status === 'pending');
+        if (!r) return;
+        r.status = 'rejected';
+        updateAll();
+      }
+
+      function updateBadgeOnly() { // header badge refresh without opening panel
+        const n = requests.filter(r => r.status === 'pending').length;
+        if (n > 0) { badgePending.textContent = String(n); badgePending.classList.remove('hidden'); }
+        else { badgePending.classList.add('hidden'); }
+      }
+
+      document.querySelectorAll('.reqBtn').forEach(btn => btn.addEventListener('click', () => {
+        const m = Number(btn.dataset.req || 0);
+        if (m > 0) createRequest(m);
+      }));
+      document.getElementById('reqCustomBtn').addEventListener('click', () => {
+        const v = Number(document.getElementById('reqCustom').value || 0);
+        if (v > 0) createRequest(v);
+      });
+
+      // Initial
+      renderRemain();
+    </script>
+  </body>
+  </html>
