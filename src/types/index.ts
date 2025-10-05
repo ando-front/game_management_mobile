@@ -1,14 +1,22 @@
 // データモデル（詳細設計書 セクション2に基づく）
 
-export interface AppState {
-  pin: string;
+export interface Child {
+  id: string;
+  name: string;
   remainingMinutes: number;
   startTimestamp: number; // 0 = not running, otherwise Epoch ms
+}
+
+export interface AppState {
+  pin: string;
+  children: Child[];
+  selectedChildId: string | null;
   version: number;
 }
 
 export interface UsageLog {
   id: string;
+  childId: string; // どの子供の履歴か
   start: number; // Epoch ms
   end: number; // Epoch ms
   duration: number; // 分

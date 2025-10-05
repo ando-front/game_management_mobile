@@ -1,6 +1,14 @@
 import Dexie, { Table } from 'dexie';
-import type { AppState, UsageLog, BackupData } from '../types';
+import type { AppState, UsageLog, BackupData, Child } from '../types';
 import { APP_VERSION, DEFAULT_PIN } from '../types';
+
+// 旧データ構造（v1）
+interface AppStateV1 {
+  pin: string;
+  remainingMinutes: number;
+  startTimestamp: number;
+  version: number;
+}
 
 // IndexedDB定義
 class GameTimeDB extends Dexie {
@@ -9,6 +17,43 @@ class GameTimeDB extends Dexie {
 
   constructor() {
     super('GameTimeDB');
+    // version 2: 複数子供対応
+    this.version(2).stores({
+      appState: '++id, version',
+      usageLogs: 'id, childId, start, end, type'
+    }).upgrade(async (trans) => {
+      // マイグレーション処理
+      const oldState = await trans.table('appState').get(1) as any;
+      if (oldState && !oldState.children) {
+        // 旧データを新しい構造に変換
+        const defaultChild: Child = {
+          id: 'child-1',
+          name: 'こども1',
+          remainingMinutes: oldState.remainingMinutes || 0,
+          startTimestamp: oldState.startTimestamp || 0
+        };
+
+        const newState: AppState = {
+          pin: oldState.pin || DEFAULT_PIN,
+          children: [defaultChild],
+          selectedChildId: 'child-1',
+          version: 2
+        };
+
+        await trans.table('appState').clear();
+        await trans.table('appState').add({ ...newState, id: 1 });
+
+        // 既存のログにchildIdを追加
+        const logs = await trans.table('usageLogs').toArray();
+        for (const log of logs) {
+          if (!log.childId) {
+            await trans.table('usageLogs').update(log.id, { childId: 'child-1' });
+          }
+        }
+      }
+    });
+
+    // version 1: 初期バージョン（後方互換性のため残す）
     this.version(1).stores({
       appState: '++id, version',
       usageLogs: 'id, start, end, type'
@@ -21,9 +66,9 @@ const db = new GameTimeDB();
 // デフォルト状態
 const defaultAppState: AppState = {
   pin: DEFAULT_PIN,
-  remainingMinutes: 0,
-  startTimestamp: 0,
-  version: APP_VERSION
+  children: [],
+  selectedChildId: null,
+  version: 2
 };
 
 /**
@@ -56,10 +101,12 @@ export class StorageService {
         await this.save(defaultAppState);
         return defaultAppState;
       }
+
+      // 新しいデータ構造を返す
       return {
         pin: state.pin,
-        remainingMinutes: state.remainingMinutes,
-        startTimestamp: state.startTimestamp,
+        children: state.children || [],
+        selectedChildId: state.selectedChildId || null,
         version: state.version
       };
     } catch (error) {
@@ -93,14 +140,20 @@ export class StorageService {
 
   /**
    * 利用ログを取得
+   * @param limit 取得件数
+   * @param childId 子供ID（指定された場合、その子供の履歴のみ取得）
    */
-  static async getLogs(limit: number = 10): Promise<UsageLog[]> {
+  static async getLogs(limit: number = 10, childId?: string): Promise<UsageLog[]> {
     try {
-      return await db.usageLogs
-        .orderBy('start')
-        .reverse()
-        .limit(limit)
-        .toArray();
+      let query = db.usageLogs.orderBy('start').reverse();
+
+      if (childId) {
+        // 特定の子供の履歴のみフィルタ
+        const allLogs = await query.toArray();
+        return allLogs.filter(log => log.childId === childId).slice(0, limit);
+      }
+
+      return await query.limit(limit).toArray();
     } catch (error) {
       console.error('Failed to get usage logs:', error);
       return [];

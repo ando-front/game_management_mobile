@@ -53,6 +53,25 @@ export const PinInput: React.FC<PinInputProps> = ({ onSuccess, onCancel }) => {
     }
   };
 
+  const handleButtonClick = () => {
+    // ロック中チェック
+    if (pinLockedUntil > 0 && Date.now() < pinLockedUntil) {
+      return;
+    }
+
+    if (!validatePin(pin)) {
+      setLocalError('4桁の数字を入力してください');
+      return;
+    }
+
+    // ストアのenterParentModeを呼び出し
+    const success = enterParentMode(pin);
+    if (success) {
+      setPin('');
+      onSuccess();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md">
@@ -78,7 +97,7 @@ export const PinInput: React.FC<PinInputProps> = ({ onSuccess, onCancel }) => {
           </div>
 
           <div className="space-y-3">
-            <Button size="large" onClick={() => handleSubmit({} as React.FormEvent)}>
+            <Button size="large" onClick={handleButtonClick}>
               開く
             </Button>
             <Button size="large" variant="secondary" onClick={onCancel}>

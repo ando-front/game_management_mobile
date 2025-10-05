@@ -3,6 +3,7 @@ import { useAppStore } from '../../stores/appStore';
 import { formatMinutes, formatSeconds, calculateRemainingMinutes } from '../../utils/time';
 import { Button } from '../common/Button';
 import { Dialog } from '../common/Dialog';
+import { UsageHistory } from './UsageHistory';
 import { MAX_SESSION_MINUTES } from '../../types';
 
 export const ChildHome: React.FC = () => {
@@ -50,7 +51,8 @@ export const ChildHome: React.FC = () => {
       </header>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8">
+      <div className="flex-1 flex flex-col items-center px-6 space-y-6 overflow-y-auto pb-20">
+        <div className="flex-shrink-0 space-y-8 pt-8">
         {/* 残り時間表示 */}
         <div className="text-center">
           <p className="text-gray-600 mb-2">残り時間</p>
@@ -102,6 +104,12 @@ export const ChildHome: React.FC = () => {
         {/* 状態表示 */}
         <div className="text-center text-sm text-gray-500">
           状態: {isRunning ? `実行中（開始: ${new Date(startTimestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}）` : '待機中'}
+        </div>
+        </div>
+
+        {/* 利用履歴 */}
+        <div className="w-full max-w-md">
+          <UsageHistory />
         </div>
       </div>
 

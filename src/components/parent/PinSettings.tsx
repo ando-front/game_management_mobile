@@ -63,6 +63,39 @@ export const PinSettings: React.FC = () => {
     handleClose();
   };
 
+  const handleButtonClick = async () => {
+    setError('');
+
+    // 現在のPINチェック
+    if (currentPin !== pin) {
+      setError('現在のPINが正しくありません');
+      return;
+    }
+
+    // 新しいPINのバリデーション
+    if (!validatePin(newPin)) {
+      setError(ValidationMessages.PIN_INVALID);
+      return;
+    }
+
+    // 確認PINチェック
+    if (newPin !== confirmPin) {
+      setError(ValidationMessages.PIN_MISMATCH);
+      return;
+    }
+
+    // 現在と同じPINの場合
+    if (newPin === pin) {
+      setError('現在と同じPINです');
+      return;
+    }
+
+    // PIN更新
+    await setPin(newPin);
+    showToast('PINを変更しました');
+    handleClose();
+  };
+
   return (
     <>
       <Button variant="secondary" onClick={handleOpen}>
@@ -78,7 +111,7 @@ export const PinSettings: React.FC = () => {
             <Button variant="secondary" onClick={handleClose}>
               キャンセル
             </Button>
-            <Button onClick={() => handleSubmit({} as React.FormEvent)}>
+            <Button onClick={handleButtonClick}>
               変更する
             </Button>
           </>
