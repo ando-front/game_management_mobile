@@ -12,8 +12,7 @@ export const ChildHome: React.FC = () => {
     isRunning,
     elapsedSeconds,
     startGame,
-    stopGame,
-    isParentMode
+    stopGame
   } = useAppStore();
 
   const [showStopDialog, setShowStopDialog] = React.useState(false);

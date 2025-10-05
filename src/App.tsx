@@ -11,7 +11,6 @@ function App() {
     toastMessage,
     error,
     initialize,
-    enterParentMode,
     exitParentMode,
     setError
   } = useAppStore();

@@ -78,7 +78,7 @@ export const PinSettings: React.FC = () => {
             <Button variant="secondary" onClick={handleClose}>
               キャンセル
             </Button>
-            <Button onClick={handleSubmit}>
+            <Button onClick={() => handleSubmit({} as React.FormEvent)}>
               変更する
             </Button>
           </>

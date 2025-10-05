@@ -232,7 +232,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // タイマーティック（1秒ごと）
   tick: () => {
-    const { isRunning, elapsedSeconds, startTimestamp, remainingMinutes } = get();
+    const { isRunning, startTimestamp, remainingMinutes } = get();
 
     if (!isRunning || startTimestamp === 0) {
       return;

@@ -78,7 +78,7 @@ export const PinInput: React.FC<PinInputProps> = ({ onSuccess, onCancel }) => {
           </div>
 
           <div className="space-y-3">
-            <Button size="large" onClick={handleSubmit}>
+            <Button size="large" onClick={() => handleSubmit({} as React.FormEvent)}>
               開く
             </Button>
             <Button size="large" variant="secondary" onClick={onCancel}>

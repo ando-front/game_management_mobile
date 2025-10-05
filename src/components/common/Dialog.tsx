@@ -10,7 +10,7 @@ interface DialogProps {
 
 export const Dialog: React.FC<DialogProps> = ({
   isOpen,
-  onClose,
+  onClose: _onClose,
   title,
   children,
   actions
