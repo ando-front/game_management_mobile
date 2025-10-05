@@ -1,21 +1,20 @@
 import React from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { formatMinutes, generateBackupFileName } from '../../utils/time';
+import { formatMinutes } from '../../utils/time';
 import { Button } from '../common/Button';
 import { Dialog } from '../common/Dialog';
+import { PinSettings } from './PinSettings';
+import { DataManagement } from './DataManagement';
 
 export const ParentPanel: React.FC = () => {
   const {
     remainingMinutes,
     grantMinutes,
     resetTime,
-    exitParentMode,
-    exportData,
-    importData
+    exitParentMode
   } = useAppStore();
 
   const [showResetDialog, setShowResetDialog] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleGrant = (minutes: number) => {
     grantMinutes(minutes);
@@ -24,43 +23,6 @@ export const ParentPanel: React.FC = () => {
   const handleResetConfirm = async () => {
     await resetTime();
     setShowResetDialog(false);
-  };
-
-  const handleExport = async () => {
-    try {
-      const jsonData = await exportData();
-      const fileName = generateBackupFileName();
-      const blob = new Blob([jsonData], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      await importData(text);
-    } catch (error) {
-      console.error('Import failed:', error);
-    }
-
-    // ファイル入力をリセット
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const handleBackToChild = () => {
@@ -105,28 +67,13 @@ export const ParentPanel: React.FC = () => {
           </Button>
         </div>
 
-        {/* バックアップ */}
+        {/* 設定・管理 */}
         <div className="w-full max-w-md">
-          <p className="text-gray-700 mb-3 text-center font-medium">バックアップ</p>
+          <p className="text-gray-700 mb-3 text-center font-medium">設定・管理</p>
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" onClick={handleExport}>
-              エクスポート
-            </Button>
-            <Button variant="secondary" onClick={handleImportClick}>
-              インポート
-            </Button>
+            <PinSettings />
+            <DataManagement />
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleImportFile}
-            className="hidden"
-          />
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            推奨: 月1回、または大きな変更後<br />
-            保存先: iCloud Drive（ファイルアプリ）
-          </p>
         </div>
       </div>
 

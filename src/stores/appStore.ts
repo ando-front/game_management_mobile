@@ -11,6 +11,8 @@ interface AppStore extends AppState {
   elapsedSeconds: number;
   error: string | null;
   toastMessage: string | null;
+  pinAttempts: number;
+  pinLockedUntil: number; // Epoch ms, 0 = not locked
 
   // Actions
   initialize: () => Promise<void>;
@@ -21,6 +23,7 @@ interface AppStore extends AppState {
   resetTime: () => Promise<void>;
   enterParentMode: (pin: string) => boolean;
   exitParentMode: () => void;
+  resetPinAttempts: () => void;
 
   // Timer
   tick: () => void;
@@ -47,6 +50,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   elapsedSeconds: 0,
   error: null,
   toastMessage: null,
+  pinAttempts: 0,
+  pinLockedUntil: 0,
 
   // アプリ初期化
   initialize: async () => {
@@ -177,18 +182,52 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // 親モード入室
   enterParentMode: (inputPin: string) => {
-    const { pin } = get();
+    const { pin, pinAttempts, pinLockedUntil } = get();
+
+    // ロック中チェック
+    if (pinLockedUntil > 0 && Date.now() < pinLockedUntil) {
+      const remainingSeconds = Math.ceil((pinLockedUntil - Date.now()) / 1000);
+      get().setError(`${remainingSeconds}秒後に再試行してください`);
+      return false;
+    }
+
+    // ロック解除
+    if (pinLockedUntil > 0 && Date.now() >= pinLockedUntil) {
+      set({ pinLockedUntil: 0, pinAttempts: 0 });
+    }
+
+    // PIN照合
     if (inputPin === pin) {
-      set({ isParentMode: true, error: null });
+      set({ isParentMode: true, error: null, pinAttempts: 0, pinLockedUntil: 0 });
       return true;
     }
-    get().setError('PINが正しくありません');
+
+    // 失敗回数をカウント
+    const newAttempts = pinAttempts + 1;
+
+    if (newAttempts >= 5) {
+      // 5回失敗でロック
+      const lockUntil = Date.now() + 30000; // 30秒
+      set({
+        pinAttempts: 0,
+        pinLockedUntil: lockUntil
+      });
+      get().setError('5回失敗しました。30秒後に再試行してください');
+    } else {
+      set({ pinAttempts: newAttempts });
+      get().setError(`PINが正しくありません（${newAttempts}/5回）`);
+    }
     return false;
   },
 
   // 親モード退室
   exitParentMode: () => {
-    set({ isParentMode: false, error: null });
+    set({ isParentMode: false, error: null, pinAttempts: 0 });
+  },
+
+  // PIN試行回数リセット
+  resetPinAttempts: () => {
+    set({ pinAttempts: 0, pinLockedUntil: 0, error: null });
   },
 
   // タイマーティック（1秒ごと）

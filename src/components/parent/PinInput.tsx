@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppStore } from '../../stores/appStore';
 import { Button } from '../common/Button';
 import { validatePin } from '../../utils/validation';
 
@@ -8,25 +9,48 @@ interface PinInputProps {
 }
 
 export const PinInput: React.FC<PinInputProps> = ({ onSuccess, onCancel }) => {
+  const { enterParentMode, error: storeError, pinLockedUntil, resetPinAttempts } = useAppStore();
   const [pin, setPin] = React.useState('');
-  const [error, setError] = React.useState('');
+  const [localError, setLocalError] = React.useState('');
+
+  // ストアのエラーまたはローカルエラーを表示
+  const displayError = storeError || localError;
+
+  // コンポーネントアンマウント時にPIN試行回数をリセット
+  React.useEffect(() => {
+    return () => {
+      // キャンセル時のみリセット（成功時はリセット済み）
+      if (!useAppStore.getState().isParentMode) {
+        resetPinAttempts();
+      }
+    };
+  }, [resetPinAttempts]);
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
     setPin(value);
-    setError('');
+    setLocalError('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ロック中チェック
+    if (pinLockedUntil > 0 && Date.now() < pinLockedUntil) {
+      return; // ストアでエラーメッセージが設定される
+    }
+
     if (!validatePin(pin)) {
-      setError('4桁の数字を入力してください');
+      setLocalError('4桁の数字を入力してください');
       return;
     }
 
-    // useAppStore.enterParentMode はここでは呼ばず、親コンポーネントで処理
-    onSuccess();
+    // ストアのenterParentModeを呼び出し
+    const success = enterParentMode(pin);
+    if (success) {
+      setPin('');
+      onSuccess();
+    }
   };
 
   return (
@@ -50,7 +74,7 @@ export const PinInput: React.FC<PinInputProps> = ({ onSuccess, onCancel }) => {
               className="w-full text-center text-4xl font-bold tracking-widest p-4 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
               autoFocus
             />
-            {error && <p className="text-red-600 text-sm mt-2 text-center">{error}</p>}
+            {displayError && <p className="text-red-600 text-sm mt-2 text-center">{displayError}</p>}
           </div>
 
           <div className="space-y-3">

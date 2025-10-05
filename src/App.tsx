@@ -17,7 +17,6 @@ function App() {
   } = useAppStore();
 
   const [showPinInput, setShowPinInput] = React.useState(false);
-  const [pinInputValue, setPinInputValue] = React.useState('');
 
   // アプリ初期化
   React.useEffect(() => {
@@ -32,16 +31,13 @@ function App() {
   }, [isParentMode, showPinInput]);
 
   const handlePinSuccess = () => {
-    const success = enterParentMode(pinInputValue);
-    if (success) {
-      setShowPinInput(false);
-      setPinInputValue('');
-    }
+    // PinInputコンポーネント内でPINを入力し、ここで検証を行う
+    // 実際の入力値はPinInputから直接enterParentModeを呼ぶように変更
+    setShowPinInput(false);
   };
 
   const handlePinCancel = () => {
     setShowPinInput(false);
-    setPinInputValue('');
     exitParentMode();
     setError(null);
   };
