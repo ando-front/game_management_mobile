@@ -35,8 +35,9 @@ export const ChildHome: React.FC = () => {
   };
 
   const handleParentMode = () => {
-    // 親モードへの切り替えは App.tsx で処理
-    useAppStore.setState({ isParentMode: true });
+    // 親モードへの切り替えリクエスト（PIN入力を促す）
+    // App.tsx で showPinInput を管理
+    window.dispatchEvent(new CustomEvent('requestParentMode'));
   };
 
   return (

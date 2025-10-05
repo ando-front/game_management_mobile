@@ -22,12 +22,17 @@ function App() {
     initialize();
   }, [initialize]);
 
-  // 親モード要求の監視
+  // 親モード要求イベントのリスナー
   React.useEffect(() => {
-    if (isParentMode && !showPinInput) {
+    const handleRequestParentMode = () => {
       setShowPinInput(true);
-    }
-  }, [isParentMode, showPinInput]);
+    };
+
+    window.addEventListener('requestParentMode', handleRequestParentMode);
+    return () => {
+      window.removeEventListener('requestParentMode', handleRequestParentMode);
+    };
+  }, []);
 
   const handlePinSuccess = () => {
     // PinInputコンポーネント内でPINを入力し、ここで検証を行う
@@ -37,7 +42,10 @@ function App() {
 
   const handlePinCancel = () => {
     setShowPinInput(false);
-    exitParentMode();
+    // isParentModeがtrueの場合のみexitを呼ぶ
+    if (isParentMode) {
+      exitParentMode();
+    }
     setError(null);
   };
 
