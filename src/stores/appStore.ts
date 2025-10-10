@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AppState, UsageLog } from '../types';
-import { APP_VERSION, MAX_SESSION_MINUTES, DEFAULT_PIN } from '../types';
+import type { AppState, UsageLog, Child } from '../types';
+import { MAX_SESSION_MINUTES, DEFAULT_PIN } from '../types';
 import { StorageService } from '../services/storage';
 import { msToMinutes, calculateRemainingMinutes } from '../utils/time';
 
@@ -17,10 +17,19 @@ interface AppStore extends AppState {
   // Actions
   initialize: () => Promise<void>;
   setPin: (pin: string) => Promise<void>;
+
+  // 子供管理
+  selectChild: (childId: string | null) => void;
+  addChild: (name: string) => Promise<void>;
+  updateChildName: (childId: string, name: string) => Promise<void>;
+  getSelectedChild: () => Child | null;
+
+  // 時間管理（選択中の子供に対して操作）
   grantMinutes: (minutes: number) => Promise<void>;
   startGame: () => Promise<boolean>;
   stopGame: () => Promise<void>;
   resetTime: () => Promise<void>;
+
   enterParentMode: (pin: string) => boolean;
   exitParentMode: () => void;
   resetPinAttempts: () => void;
@@ -42,9 +51,9 @@ interface AppStore extends AppState {
 export const useAppStore = create<AppStore>((set, get) => ({
   // Initial State
   pin: DEFAULT_PIN,
-  remainingMinutes: 0,
-  startTimestamp: 0,
-  version: APP_VERSION,
+  children: [],
+  selectedChildId: null,
+  version: 2,
   isParentMode: false,
   isRunning: false,
   elapsedSeconds: 0,
@@ -57,19 +66,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
   initialize: async () => {
     const state = await StorageService.load();
     if (state) {
-      // 実行中状態の復元
-      const isRunning = state.startTimestamp > 0;
+      // 選択中の子供の実行中状態を復元
+      const selectedChild = state.children.find(c => c.id === state.selectedChildId);
+      const isRunning = selectedChild ? selectedChild.startTimestamp > 0 : false;
       let elapsedSeconds = 0;
 
-      if (isRunning) {
-        const elapsedMs = Date.now() - state.startTimestamp;
+      if (isRunning && selectedChild) {
+        const elapsedMs = Date.now() - selectedChild.startTimestamp;
         elapsedSeconds = Math.floor(elapsedMs / 1000);
       }
 
       set({
         pin: state.pin,
-        remainingMinutes: state.remainingMinutes,
-        startTimestamp: state.startTimestamp,
+        children: state.children,
+        selectedChildId: state.selectedChildId,
         version: state.version,
         isRunning,
         elapsedSeconds
@@ -83,17 +93,100 @@ export const useAppStore = create<AppStore>((set, get) => ({
     await get().saveState();
   },
 
+  // 子供選択
+  selectChild: (childId: string | null) => {
+    if (childId === null) {
+      // 選択をクリア
+      set({
+        selectedChildId: null,
+        isRunning: false,
+        elapsedSeconds: 0
+      });
+      get().saveState();
+      return;
+    }
+
+    const child = get().children.find(c => c.id === childId);
+    if (child) {
+      const isRunning = child.startTimestamp > 0;
+      let elapsedSeconds = 0;
+
+      if (isRunning) {
+        const elapsedMs = Date.now() - child.startTimestamp;
+        elapsedSeconds = Math.floor(elapsedMs / 1000);
+      }
+
+      set({
+        selectedChildId: childId,
+        isRunning,
+        elapsedSeconds
+      });
+      get().saveState();
+    }
+  },
+
+  // 子供追加
+  addChild: async (name: string) => {
+    const children = get().children;
+    if (children.length >= 2) {
+      get().setError('子供は最大2名までです');
+      return;
+    }
+
+    const newChild: Child = {
+      id: `child-${Date.now()}`,
+      name,
+      remainingMinutes: 0,
+      startTimestamp: 0
+    };
+
+    set({
+      children: [...children, newChild],
+      selectedChildId: newChild.id,
+      isRunning: false,
+      elapsedSeconds: 0
+    });
+    await get().saveState();
+    get().showToast(`${name}を追加しました`);
+  },
+
+  // 子供の名前更新
+  updateChildName: async (childId: string, name: string) => {
+    const children = get().children.map(c =>
+      c.id === childId ? { ...c, name } : c
+    );
+    set({ children });
+    await get().saveState();
+    get().showToast('名前を変更しました');
+  },
+
+  // 選択中の子供を取得
+  getSelectedChild: () => {
+    const { children, selectedChildId } = get();
+    return children.find(c => c.id === selectedChildId) || null;
+  },
+
   // 時間付与
   grantMinutes: async (minutes: number) => {
-    const currentMinutes = get().remainingMinutes;
-    const newMinutes = currentMinutes + minutes;
+    const selectedChild = get().getSelectedChild();
+    if (!selectedChild) {
+      get().setError('子供が選択されていません');
+      return;
+    }
 
-    set({ remainingMinutes: newMinutes });
+    const children = get().children.map(c =>
+      c.id === selectedChild.id
+        ? { ...c, remainingMinutes: c.remainingMinutes + minutes }
+        : c
+    );
+
+    set({ children });
     await get().saveState();
 
     // ログ記録
     const log: UsageLog = {
       id: `grant_${Date.now()}`,
+      childId: selectedChild.id,
       start: Date.now(),
       end: Date.now(),
       duration: 0,
@@ -108,21 +201,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // ゲーム開始
   startGame: async () => {
-    const { remainingMinutes, isRunning } = get();
+    const selectedChild = get().getSelectedChild();
+    if (!selectedChild) {
+      get().setError('子供が選択されていません');
+      return false;
+    }
 
-    if (isRunning) {
+    if (get().isRunning) {
       get().setError('既にゲーム中です');
       return false;
     }
 
-    if (remainingMinutes <= 0) {
+    if (selectedChild.remainingMinutes <= 0) {
       get().setError('残り時間がありません');
       return false;
     }
 
     const startTimestamp = Date.now();
+    const children = get().children.map(c =>
+      c.id === selectedChild.id
+        ? { ...c, startTimestamp }
+        : c
+    );
+
     set({
-      startTimestamp,
+      children,
       isRunning: true,
       elapsedSeconds: 0,
       error: null
@@ -134,13 +237,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // ゲーム終了
   stopGame: async () => {
-    const { startTimestamp, remainingMinutes } = get();
-
-    if (startTimestamp === 0) {
+    const selectedChild = get().getSelectedChild();
+    if (!selectedChild || selectedChild.startTimestamp === 0) {
       return;
     }
 
-    const elapsedMs = Date.now() - startTimestamp;
+    const elapsedMs = Date.now() - selectedChild.startTimestamp;
     let elapsedMinutes = msToMinutes(elapsedMs);
 
     // 最大セッション時間制限
@@ -149,11 +251,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       get().showToast('最大2時間で自動終了しました');
     }
 
-    const newRemainingMinutes = Math.max(0, remainingMinutes - elapsedMinutes);
+    const newRemainingMinutes = Math.max(0, selectedChild.remainingMinutes - elapsedMinutes);
+
+    const children = get().children.map(c =>
+      c.id === selectedChild.id
+        ? { ...c, startTimestamp: 0, remainingMinutes: newRemainingMinutes }
+        : c
+    );
 
     set({
-      startTimestamp: 0,
-      remainingMinutes: newRemainingMinutes,
+      children,
       isRunning: false,
       elapsedSeconds: 0
     });
@@ -163,7 +270,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // ログ記録
     const log: UsageLog = {
       id: `consume_${Date.now()}`,
-      start: startTimestamp,
+      childId: selectedChild.id,
+      start: selectedChild.startTimestamp,
       end: Date.now(),
       duration: elapsedMinutes,
       type: 'consume',
@@ -175,7 +283,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // 時間リセット
   resetTime: async () => {
-    set({ remainingMinutes: 0, startTimestamp: 0, isRunning: false, elapsedSeconds: 0 });
+    const selectedChild = get().getSelectedChild();
+    if (!selectedChild) {
+      get().setError('子供が選択されていません');
+      return;
+    }
+
+    const children = get().children.map(c =>
+      c.id === selectedChild.id
+        ? { ...c, remainingMinutes: 0, startTimestamp: 0 }
+        : c
+    );
+
+    set({
+      children,
+      isRunning: false,
+      elapsedSeconds: 0
+    });
+
     await get().saveState();
     get().showToast('時間をリセットしました');
   },
@@ -232,18 +357,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // タイマーティック（1秒ごと）
   tick: () => {
-    const { isRunning, startTimestamp, remainingMinutes } = get();
+    const { isRunning } = get();
+    const selectedChild = get().getSelectedChild();
 
-    if (!isRunning || startTimestamp === 0) {
+    if (!isRunning || !selectedChild || selectedChild.startTimestamp === 0) {
       return;
     }
 
-    const actualElapsedSeconds = Math.floor((Date.now() - startTimestamp) / 1000);
+    const actualElapsedSeconds = Math.floor((Date.now() - selectedChild.startTimestamp) / 1000);
 
     // 残り時間チェック
     const currentRemaining = calculateRemainingMinutes(
-      remainingMinutes,
-      startTimestamp,
+      selectedChild.remainingMinutes,
+      selectedChild.startTimestamp,
       MAX_SESSION_MINUTES
     );
 
@@ -258,11 +384,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // 状態保存
   saveState: async () => {
-    const { pin, remainingMinutes, startTimestamp, version } = get();
+    const { pin, children, selectedChildId, version } = get();
     const state: AppState = {
       pin,
-      remainingMinutes,
-      startTimestamp,
+      children,
+      selectedChildId,
       version
     };
     await StorageService.save(state);

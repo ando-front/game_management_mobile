@@ -8,13 +8,27 @@ import { DataManagement } from './DataManagement';
 
 export const ParentPanel: React.FC = () => {
   const {
-    remainingMinutes,
+    children,
+    selectedChildId,
+    selectChild,
     grantMinutes,
     resetTime,
     exitParentMode
   } = useAppStore();
 
   const [showResetDialog, setShowResetDialog] = React.useState(false);
+  const selectedChild = children.find(c => c.id === selectedChildId);
+
+  // デバッグ用
+  React.useEffect(() => {
+    console.log('ParentPanel - children:', children);
+    console.log('ParentPanel - children.length:', children.length);
+    console.log('ParentPanel - selectedChildId:', selectedChildId);
+  }, [children, selectedChildId]);
+
+  const handleSelectChild = (childId: string) => {
+    selectChild(childId);
+  };
 
   const handleGrant = (minutes: number) => {
     grantMinutes(minutes);
@@ -29,22 +43,51 @@ export const ParentPanel: React.FC = () => {
     exitParentMode();
   };
 
+  const handleManageChildren = () => {
+    // 子供選択画面に戻る（selectedChildIdをnullにする）
+    selectChild(null);
+    exitParentMode();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
       {/* ヘッダー */}
       <header className="p-4 text-center border-b border-purple-100">
         <h1 className="text-2xl font-bold text-purple-900">👨‍👩‍👧‍👦 親モード</h1>
+        <p className="text-xs text-gray-500 mt-1">デバッグ: 子供数={children.length}</p>
       </header>
 
       {/* メインコンテンツ */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8">
-        {/* 現在の残り時間 */}
-        <div className="text-center">
-          <p className="text-gray-600 mb-2">現在の残り時間</p>
-          <div className="text-5xl font-bold text-purple-600">
-            {formatMinutes(remainingMinutes)}
+        {/* 子供選択 */}
+        {children.length > 1 && (
+          <div className="w-full max-w-md">
+            <p className="text-gray-700 mb-3 text-center font-medium">子供を選択</p>
+            <div className="grid grid-cols-2 gap-3">
+              {children.map((child) => (
+                <Button
+                  key={child.id}
+                  onClick={() => handleSelectChild(child.id)}
+                  variant={selectedChildId === child.id ? 'primary' : 'secondary'}
+                >
+                  {child.name}
+                  <br />
+                  <span className="text-xs">{formatMinutes(child.remainingMinutes)}</span>
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 現在の残り時間 */}
+        {selectedChild && (
+          <div className="text-center">
+            <p className="text-gray-600 mb-2">{selectedChild.name}の残り時間</p>
+            <div className="text-5xl font-bold text-purple-600">
+              {formatMinutes(selectedChild.remainingMinutes)}
+            </div>
+          </div>
+        )}
 
         {/* 時間付与プリセット */}
         <div className="w-full max-w-md">
@@ -67,6 +110,17 @@ export const ParentPanel: React.FC = () => {
           </Button>
         </div>
 
+        {/* 子供の管理 */}
+        <div className="w-full max-w-md">
+          <Button
+            size="large"
+            onClick={handleManageChildren}
+            className="w-full"
+          >
+            👶 子供の追加・管理
+          </Button>
+        </div>
+
         {/* 設定・管理 */}
         <div className="w-full max-w-md">
           <p className="text-gray-700 mb-3 text-center font-medium">設定・管理</p>
@@ -78,13 +132,14 @@ export const ParentPanel: React.FC = () => {
       </div>
 
       {/* フッター */}
-      <footer className="p-4 text-right">
-        <button
+      <footer className="p-6">
+        <Button
+          variant="secondary"
           onClick={handleBackToChild}
-          className="text-purple-600 hover:text-purple-800 font-medium"
+          className="w-full"
         >
-          子供モードへ →
-        </button>
+          👶 子供モードへ
+        </Button>
       </footer>
 
       {/* リセット確認ダイアログ */}

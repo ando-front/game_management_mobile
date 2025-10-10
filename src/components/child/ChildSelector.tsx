@@ -39,17 +39,18 @@ export const ChildSelector: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white p-4" style={{ overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}>
+      <div className="w-full max-w-md mx-auto">
+        <div className="text-center my-6">
           <h1 className="text-3xl font-bold text-indigo-900 mb-2">👶 だれの じかん？</h1>
           <p className="text-gray-600">なまえを えらんでね</p>
+          <p className="text-xs text-gray-400 mt-1">デバッグ: 子供数={children.length}</p>
         </div>
 
         {/* 子供リスト */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-4 mb-6">
           {children.map((child) => (
-            <div key={child.id} className="flex items-center space-x-2">
+            <div key={child.id} className="flex items-center space-x-3">
               <Button
                 size="large"
                 onClick={() => handleSelect(child.id)}
@@ -64,7 +65,7 @@ export const ChildSelector: React.FC = () => {
               </Button>
               <button
                 onClick={() => openEditDialog(child)}
-                className="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+                className="p-4 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors text-xl"
               >
                 ✏️
               </button>
@@ -74,23 +75,28 @@ export const ChildSelector: React.FC = () => {
 
         {/* 子供追加ボタン（2人未満の場合のみ） */}
         {children.length < 2 && (
-          <Button
-            variant="secondary"
-            onClick={() => setShowAddDialog(true)}
-            className="w-full"
-          >
-            ➕ なまえを ついかする
-          </Button>
+          <div className="mb-6">
+            <Button
+              variant="primary"
+              size="large"
+              onClick={() => setShowAddDialog(true)}
+              className="w-full text-xl"
+            >
+              ➕ なまえを ついかする
+            </Button>
+          </div>
         )}
 
         {/* 親モードボタン */}
-        <div className="mt-8 text-center">
-          <button
+        <div className="mb-6">
+          <Button
+            variant="secondary"
+            size="large"
             onClick={() => window.dispatchEvent(new CustomEvent('requestParentMode'))}
-            className="text-indigo-600 hover:text-indigo-800 font-medium"
+            className="w-full"
           >
-            親モード →
-          </button>
+            👨‍👩‍👧‍👦 親モード
+          </Button>
         </div>
       </div>
 

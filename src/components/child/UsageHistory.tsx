@@ -1,9 +1,11 @@
 import React from 'react';
 import { StorageService } from '../../services/storage';
 import { formatDateTime } from '../../utils/time';
+import { useAppStore } from '../../stores/appStore';
 import type { UsageLog } from '../../types';
 
 export const UsageHistory: React.FC = () => {
+  const { selectedChildId } = useAppStore();
   const [logs, setLogs] = React.useState<UsageLog[]>([]);
 
   // ログを読み込み
@@ -16,10 +18,11 @@ export const UsageHistory: React.FC = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedChildId]); // selectedChildId が変わったら再読み込み
 
   const loadLogs = async () => {
-    const recentLogs = await StorageService.getLogs(10);
+    // 選択中の子供のログのみ取得
+    const recentLogs = await StorageService.getLogs(10, selectedChildId || undefined);
     setLogs(recentLogs);
   };
 

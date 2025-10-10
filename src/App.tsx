@@ -1,12 +1,15 @@
 import React from 'react';
 import { useAppStore } from './stores/appStore';
 import { ChildHome } from './components/child/ChildHome';
+import { ChildSelector } from './components/child/ChildSelector';
 import { PinInput } from './components/parent/PinInput';
 import { ParentPanel } from './components/parent/ParentPanel';
 import { Toast } from './components/common/Toast';
 
 function App() {
   const {
+    children,
+    selectedChildId,
     isParentMode,
     toastMessage,
     error,
@@ -49,6 +52,9 @@ function App() {
     setError(null);
   };
 
+  // 画面判定: 子供が未登録または未選択の場合はChildSelectorを表示
+  const shouldShowChildSelector = children.length === 0 || (!isParentMode && !selectedChildId);
+
   // エラー表示
   React.useEffect(() => {
     if (error) {
@@ -79,6 +85,8 @@ function App() {
         />
       ) : isParentMode ? (
         <ParentPanel />
+      ) : shouldShowChildSelector ? (
+        <ChildSelector />
       ) : (
         <ChildHome />
       )}

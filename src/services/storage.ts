@@ -2,14 +2,6 @@ import Dexie, { Table } from 'dexie';
 import type { AppState, UsageLog, BackupData, Child } from '../types';
 import { APP_VERSION, DEFAULT_PIN } from '../types';
 
-// 旧データ構造（v1）
-interface AppStateV1 {
-  pin: string;
-  remainingMinutes: number;
-  startTimestamp: number;
-  version: number;
-}
-
 // IndexedDB定義
 class GameTimeDB extends Dexie {
   appState!: Table<AppState & { id: number }, number>;
